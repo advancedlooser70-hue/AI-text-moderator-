@@ -5,7 +5,8 @@
       "src": "api/moderate.py",
       "use": "@vercel/python",
       "config": {
-        "runtime": "python3.9"
+        "runtime": "python3.12",
+        "maxLambdaSize": "15mb"
       }
     }
   ],
@@ -21,5 +22,11 @@
         "Cache-Control": "public, max-age=31536000"
       }
     }
-  ]
+  ],
+  "functions": {
+    "api/moderate.py": {
+      "maxDuration": 30,
+      "memory": 1024
+    }
+  }
 }

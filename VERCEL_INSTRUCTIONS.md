@@ -113,3 +113,40 @@ After making changes:
 1. Push updates to your GitHub repository
 2. Vercel will automatically redeploy
 3. Or manually trigger a deployment from your dashboard
+
+# Vercel Deployment Instructions
+
+## Memory Optimization for AI Text Moderator
+
+This project has been optimized for Vercel deployment by using a lightweight toxicity detection system that avoids heavy AI dependencies during build time.
+
+### Key Changes Made:
+
+1. **Reduced Dependencies**: Heavy AI libraries (PyTorch, Transformers, Detoxify) have been removed from requirements.txt for Vercel deployment
+2. **Keyword-based Detection**: Uses simple keyword-based toxicity detection instead of ML models during Vercel deployment
+3. **Optimized Configuration**: vercel.json includes memory and timeout optimizations
+
+### How It Works:
+
+- The [api/moderate.py](file:///c/Users/Anadi Sharma/2k26 hackathons/Manit/AI-text-moderator/api/moderate.py) file contains both a simple keyword-based toxicity detector and a more advanced API-based rephrasing system
+- For Vercel deployment, it uses the lightweight keyword-based system to avoid memory issues
+- The rephrasing still works using the Groq API when available
+
+### Environment Variables Required:
+
+- `GROQ_API_KEY` (optional) - For enhanced rephrasing capabilities
+
+### Deployment:
+
+1. Push your changes to your GitHub repository
+2. Import the project in Vercel
+3. The build should complete without memory errors
+
+### Local Development:
+
+For full functionality with ML models, use:
+```bash
+pip install -r requirements-full.txt  # Contains all dependencies
+```
+
+The application will work with reduced functionality on Vercel but with full functionality when run locally.
