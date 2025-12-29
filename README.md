@@ -3,7 +3,7 @@
 This application moderates chat messages in real-time by detecting toxicity and automatically rephrasing inappropriate messages into polite versions using AI models.
 
 ## 🎯 How It Works
-
+  
 1. **Sender** types a message in the sender view
 2. **AI Analysis**: The system detects if the message is toxic/inappropriate
 3. **Smart Rephrasing**: If toxic, the AI automatically converts it to a polite version
