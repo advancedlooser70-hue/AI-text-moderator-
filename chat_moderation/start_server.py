@@ -10,7 +10,7 @@ if __name__ == "__main__":
     print("API Keys loaded:")
     print(f"Gemini API Key: {'Found' if os.getenv('GEMINI_API_KEY') else 'Not found'}")
     print(f"AIML API Key: {'Found' if os.getenv('AIMLAPI_KEY') else 'Not found'}")
-    print("\nServer starting on http://127.0.0.1:8000")
+    print("\nServer starting on http://127.0.0.1:8000/moderator")
     print("Press Ctrl+C to stop the server")
     
     uvicorn.run(

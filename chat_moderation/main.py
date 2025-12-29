@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from transformers import pipeline
+from fastapi.responses import RedirectResponse, HTMLResponse
 
 load_dotenv()
 
@@ -314,14 +315,9 @@ async def sender_view(request: Request):
 async def receiver_view(request: Request):
     return templates.TemplateResponse("receiver.html", {"request": request})
 
-@app.get("/")
-async def root():
-    return {
-        "message": "Chat Toxicity Moderator API", 
-        "status": "running", 
-        "groq_configured": groq_client is not None,
-        "model": "llama-3.3-70b-versatile"
-    }
+@app.get("/", response_class=HTMLResponse)
+async def root(request: Request):
+    return templates.TemplateResponse("moderator.html", {"request": request})
 
 if __name__ == "__main__":
     import uvicorn
