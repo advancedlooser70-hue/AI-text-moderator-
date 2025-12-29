@@ -11,6 +11,3 @@ jinja2
 accelerate
 websockets
 anyio
-groq
-mangum
-httpx
