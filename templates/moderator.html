@@ -1,673 +1,369 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat Moderator Dashboard</title>
+    <title>Toxicity Detector | Live Demo</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
-            --bg-dark: #0b141a;
-            --panel-bg: #111b21;
-            --input-bg: #2a3942;
-            --accent-green: #00a884;
-            --text-main: #e9edef;
-            --text-dim: #8696a0;
-            --bubble-sent: #005c4b;
-            --bubble-received: #005c4b;
-            --bubble-warning: #182229;
-            --border-color: #222d34;
-            --red-alert: #ff4757;
+            --bg-dark: #0f111a; /* Deep matte black/blue */
+            --panel-bg: #1a1d2d; /* Slightly lighter panel */
+            --border: #2f344a;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --accent-safe: #10b981; /* Emerald Green */
+            --accent-toxic: #ef4444; /* Rose Red */
+            --bubble-self: #3b82f6; /* Blue for input */
+            --bubble-received: #2d3748;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', sans-serif;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', system-ui, sans-serif; }
 
         body {
-            background-color: var(--bg-dark);
-            color: var(--text-main);
+            background: var(--bg-dark);
+            color: var(--text-primary);
             height: 100vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
 
-        .top-header {
-            background: var(--panel-bg);
-            padding: 15px 20px;
-            border-bottom: 1px solid var(--border-color);
-            text-align: center;
-        }
-
-        .top-header h1 {
-            font-size: 1.2rem;
-            font-weight: 500;
-            color: var(--text-main);
-            margin-bottom: 4px;
-        }
-
-        .top-header p {
-            font-size: 0.75rem;
-            color: var(--text-dim);
-        }
-
-        .status-indicator {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--red-alert);
-            margin-left: 8px;
-            animation: pulse 2s infinite;
-        }
-
-        .status-indicator.connected {
-            background: var(--accent-green);
-        }
-
-        @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.5;
-            }
-        }
-
-        .main-container {
+        /* --- Header --- */
+        header {
+            padding: 15px 25px;
+            border-bottom: 1px solid var(--border);
             display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--panel-bg);
+        }
+        .status-dot {
+            height: 8px; width: 8px; border-radius: 50%;
+            background: var(--text-secondary);
+            display: inline-block;
+            transition: background 0.3s;
+        }
+        .status-dot.active { background: var(--accent-safe); box-shadow: 0 0 10px var(--accent-safe); }
+
+        /* --- Grid Layout --- */
+        .grid-container {
+            display: grid;
+            grid-template-columns: 1fr 380px 1fr; /* Left, Center (Fixed), Right */
             flex: 1;
-            gap: 2px;
-            background: var(--bg-dark);
+            height: 100%;
             overflow: hidden;
         }
 
         .panel {
-            background: var(--panel-bg);
+            border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
-            overflow: hidden;
+            position: relative;
         }
-
-        .left-panel,
-        .right-panel {
-            flex: 1;
-            min-width: 320px;
-        }
-
-        .center-panel {
-            flex: 1;
-            min-width: 380px;
-            background: var(--bg-dark);
-        }
+        .panel:last-child { border-right: none; }
 
         .panel-header {
-            padding: 15px 20px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: var(--panel-bg);
+            padding: 15px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border);
+            background: rgba(15, 17, 26, 0.5);
         }
 
-        .panel-header h2 {
-            font-size: 1rem;
-            font-weight: 500;
-            color: var(--text-main);
-        }
-
-        .panel-header p {
-            font-size: 0.75rem;
-            color: var(--text-dim);
-        }
-
-        /* LEFT PANEL - SENDER */
-        .chat-view {
+        /* --- Chat Areas (Left & Right) --- */
+        .chat-scroll {
             flex: 1;
             padding: 20px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
             gap: 12px;
-            scroll-behavior: smooth;
         }
 
         .bubble {
-            max-width: 80%;
-            padding: 8px 12px;
-            border-radius: 8px;
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 12px;
             font-size: 0.95rem;
+            line-height: 1.5;
             position: relative;
-            line-height: 1.4;
+            animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
+        /* Left Panel - Sender Bubbles */
         .sent {
             align-self: flex-end;
-            background: var(--bubble-sent);
-            border-top-right-radius: 2px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+        
+        /* Dynamic Styles for Toxicity Feedback */
+        .sent.pending { opacity: 0.6; }
+        .sent.safe { border-color: var(--accent-safe); }
+        .sent.toxic { 
+            border-color: var(--accent-toxic); 
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-toxic);
         }
 
+        /* Right Panel - Receiver Bubbles */
         .received {
             align-self: flex-start;
-            background: var(--input-bg);
-            border-top-left-radius: 2px;
+            background: var(--bubble-received);
+            border-left: 3px solid var(--accent-safe);
+        }
+        .received.modified {
+            border-left: 3px solid var(--text-secondary);
+            font-style: italic;
         }
 
-        .system {
-            align-self: center;
-            background: var(--bubble-warning);
-            color: #ffd700;
-            border: 1px solid #333;
-            font-size: 0.8rem;
-            border-radius: 4px;
-            text-align: center;
-        }
-
-        .time {
-            font-size: 0.7rem;
-            color: rgba(255, 255, 255, 0.5);
-            margin-top: 4px;
-            text-align: right;
-        }
-
-        .input-bar {
-            padding: 12px 16px;
-            background: var(--panel-bg);
-            display: flex;
-            gap: 12px;
-            align-items: flex-end;
-            border-top: 1px solid var(--border-color);
-        }
-
-        textarea {
-            flex: 1;
-            background: var(--input-bg);
-            border: none;
-            outline: none;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 20px;
-            resize: none;
-            height: 42px;
-            max-height: 120px;
-            font-size: 0.95rem;
-        }
-
-        button {
-            background: var(--accent-green);
-            border: none;
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            color: white;
-            cursor: pointer;
-            flex-shrink: 0;
-            transition: transform 0.1s;
-        }
-
-        button:active {
-            transform: scale(0.9);
-        }
-
-        button:hover {
-            background: #00957a;
-        }
-
-        /* CENTER PANEL - MODERATION ENGINE */
-        .moderation-content {
-            padding: 20px;
+        /* --- Center Panel (Detector) --- */
+        .center-content {
+            padding: 30px 20px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
-            overflow-y: auto;
-        }
-
-        .toxicity-card {
-            background: var(--panel-bg);
-            border-radius: 8px;
-            padding: 20px;
-            border: 1px solid var(--border-color);
-        }
-
-        .toxicity-label {
-            font-size: 0.75rem;
-            color: var(--text-dim);
-            margin-bottom: 12px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            display: flex;
             align-items: center;
-            gap: 8px;
+            justify-content: flex-start;
+            gap: 30px;
         }
 
-        .toxicity-score {
-            font-size: 3rem;
-            font-weight: 700;
-            margin-bottom: 12px;
-            transition: color 0.3s;
-        }
-
-        .toxicity-score.safe {
-            color: var(--accent-green);
-        }
-
-        .toxicity-score.toxic {
-            color: var(--red-alert);
-        }
-
-        .toxicity-bar {
+        .status-card {
             width: 100%;
-            height: 8px;
-            background: var(--input-bg);
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 8px;
-        }
-
-        .toxicity-bar-fill {
-            height: 100%;
-            transition: all 0.5s ease;
-            border-radius: 4px;
-        }
-
-        .threshold-text {
-            font-size: 0.75rem;
-            color: var(--text-dim);
-            text-align: center;
-        }
-
-        .decision-card {
             background: var(--panel-bg);
-            border-radius: 8px;
-            padding: 20px;
-            border: 1px solid var(--border-color);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.3s ease;
         }
 
-        .decision-label {
-            font-size: 0.75rem;
-            color: var(--text-dim);
-            margin-bottom: 15px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+        .score-display {
+            font-size: 4rem;
+            font-weight: 800;
+            font-family: monospace;
+            margin: 10px 0;
+            color: var(--text-secondary);
         }
+        .score-label { font-size: 0.8rem; text-transform: uppercase; color: var(--text-secondary); }
 
-        .decision-status {
+        .analysis-state {
             display: flex;
+            flex-direction: column;
             align-items: center;
             gap: 15px;
-            padding: 15px;
-            border-radius: 8px;
-            transition: all 0.3s;
         }
-
-        .decision-status.forwarding {
-            background: rgba(0, 168, 132, 0.1);
-            border-left: 4px solid var(--accent-green);
-        }
-
-        .decision-status.rephrasing {
-            background: rgba(255, 71, 87, 0.1);
-            border-left: 4px solid var(--red-alert);
-        }
-
-        .decision-icon {
-            font-size: 28px;
-        }
-
-        .decision-text {
-            flex: 1;
-            font-size: 0.95rem;
-            font-weight: 500;
-            color: var(--text-main);
-        }
-
-        .flow-diagram {
-            background: var(--panel-bg);
-            border-radius: 8px;
-            padding: 20px;
-            border: 1px solid var(--border-color);
-            text-align: center;
-        }
-
-        .flow-title {
-            font-size: 0.75rem;
-            color: var(--text-dim);
-            margin-bottom: 15px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .flow-step {
+        
+        .badge {
+            padding: 8px 16px;
+            border-radius: 20px;
             font-size: 0.85rem;
-            color: var(--text-main);
-            margin: 8px 0;
+            font-weight: 600;
+            background: var(--border);
         }
 
-        .flow-arrow {
-            color: var(--accent-green);
-            font-size: 1.2rem;
-            margin: 5px 0;
-        }
+        /* State Classes */
+        .status-safe .score-display { color: var(--accent-safe); }
+        .status-safe .badge { background: rgba(16, 185, 129, 0.2); color: var(--accent-safe); }
+        
+        .status-toxic .score-display { color: var(--accent-toxic); }
+        .status-toxic .badge { background: rgba(239, 68, 68, 0.2); color: var(--accent-toxic); }
 
-        /* RIGHT PANEL - RECEIVER */
-        .empty-state {
-            text-align: center;
-            color: var(--text-dim);
-            padding: 40px 20px;
-            font-size: 0.9rem;
+        /* --- Input Area --- */
+        .input-area {
+            padding: 20px;
+            background: var(--panel-bg);
+            border-top: 1px solid var(--border);
         }
-
-        .empty-state i {
-            font-size: 3rem;
-            margin-bottom: 15px;
-            opacity: 0.3;
-        }
-
-        .moderation-notice {
-            font-size: 0.75rem;
-            color: #ffd700;
-            background: var(--bubble-warning);
-            padding: 6px 10px;
-            border-radius: 4px;
-            margin-top: 6px;
-            border-left: 3px solid #ffd700;
-        }
-
-        /* Scrollbar styling */
-        .chat-view::-webkit-scrollbar,
-        .moderation-content::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .chat-view::-webkit-scrollbar-track,
-        .moderation-content::-webkit-scrollbar-track {
+        .input-wrapper {
+            display: flex;
+            gap: 10px;
             background: var(--bg-dark);
+            padding: 5px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
         }
-
-        .chat-view::-webkit-scrollbar-thumb,
-        .moderation-content::-webkit-scrollbar-thumb {
-            background: var(--input-bg);
-            border-radius: 3px;
+        input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: white;
+            padding: 12px 15px;
+            outline: none;
+            font-size: 1rem;
         }
-
-        .chat-view::-webkit-scrollbar-thumb:hover,
-        .moderation-content::-webkit-scrollbar-thumb:hover {
-            background: var(--border-color);
+        button {
+            background: var(--bubble-self);
+            border: none;
+            color: white;
+            padding: 0 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: opacity 0.2s;
         }
+        button:hover { opacity: 0.9; }
 
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .bubble {
-            animation: slideIn 0.3s ease;
-        }
+        @keyframes popIn { from { opacity: 0; transform: translateY(10px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
     </style>
 </head>
-
 <body>
-    <div class="top-header">
-        <h1><i class="fas fa-shield-alt"></i> Chat Moderator Dashboard</h1>
-        <p>Real-time content moderation with AI-powered rephrasing <span class="status-indicator"
-                id="connectionStatus"></span></p>
-    </div>
 
-    <div class="main-container">
-        <!-- LEFT PANEL: SENDER -->
-        <div class="panel left-panel">
-            <div class="panel-header">
-                <i class="fas fa-paper-plane" style="color: var(--accent-green);"></i>
-                <div>
-                    <h2>Sender View</h2>
-                    <p>Type and send messages</p>
-                </div>
-            </div>
-
-            <div class="chat-view" id="messageHistory">
-                <div class="system bubble">
-                    <i class="fas fa-info-circle"></i> Type a message to begin testing
-                </div>
-            </div>
-
-            <div class="input-bar">
-                <textarea id="messageInput" placeholder="Type a message..." rows="1"></textarea>
-                <button onclick="sendMessage()">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
-            </div>
+    <header>
+        <div>
+            <i class="fas fa-shield-virus" style="color: var(--accent-safe); margin-right: 10px;"></i>
+            <strong>Toxicity Guard</strong> <span style="opacity: 0.5;">| Live Monitor</span>
         </div>
+        <div class="status-dot" id="wsStatus"></div>
+    </header>
 
-        <!-- CENTER PANEL: MODERATION ENGINE -->
-        <div class="panel center-panel">
-            <div class="panel-header">
-                <i class="fas fa-cogs" style="color: var(--accent-green);"></i>
-                <div>
-                    <h2>Moderation Engine</h2>
-                    <p>AI analysis and decision-making</p>
+    <div class="grid-container">
+        
+        <div class="panel">
+            <div class="panel-header">Sender Input</div>
+            <div class="chat-scroll" id="senderLog">
                 </div>
-            </div>
-
-            <div class="moderation-content">
-                <div class="toxicity-card">
-                    <div class="toxicity-label">
-                        <i class="fas fa-chart-line"></i>
-                        Toxicity Score
-                    </div>
-                    <div class="toxicity-score safe" id="toxicityScore">0.00</div>
-                    <div class="toxicity-bar">
-                        <div class="toxicity-bar-fill" id="toxicityBarFill"
-                            style="width: 0%; background: var(--accent-green);"></div>
-                    </div>
-                    <div class="threshold-text">
-                        <i class="fas fa-ruler-horizontal"></i> Threshold: 0.50
-                    </div>
-                </div>
-
-                <div class="decision-card">
-                    <div class="decision-label">
-                        <i class="fas fa-robot"></i>
-                        AI Decision
-                    </div>
-                    <div class="decision-status forwarding" id="decisionDisplay">
-                        <div class="decision-icon">⏳</div>
-                        <div class="decision-text">Awaiting message...</div>
-                    </div>
-                </div>
-
-                <div class="flow-diagram">
-                    <div class="flow-title">
-                        <i class="fas fa-project-diagram"></i> Moderation Flow
-                    </div>
-                    <div class="flow-step">📝 Sender Input</div>
-                    <div class="flow-arrow">↓</div>
-                    <div class="flow-step">🔍 Toxicity Analysis</div>
-                    <div class="flow-arrow">↓</div>
-                    <div class="flow-step" id="flowDecision">⚖️ Decision Point (0.50)</div>
-                    <div class="flow-arrow">↓</div>
-                    <div class="flow-step">👁️ Receiver Output</div>
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <input type="text" id="msgInput" placeholder="Type a message..." autocomplete="off">
+                    <button onclick="send()" id="sendBtn"><i class="fas fa-paper-plane"></i></button>
                 </div>
             </div>
         </div>
 
-        <!-- RIGHT PANEL: RECEIVER -->
-        <div class="panel right-panel">
-            <div class="panel-header">
-                <i class="fas fa-eye" style="color: var(--accent-green);"></i>
-                <div>
-                    <h2>Receiver View</h2>
-                    <p>Final delivered messages</p>
+        <div class="panel">
+            <div class="panel-header">AI Analysis</div>
+            <div class="center-content">
+                <div class="status-card" id="mainStatusCard">
+                    <div class="score-label">Toxicity Score</div>
+                    <div class="score-display" id="scoreVal">0.00</div>
+                    <div class="badge" id="statusBadge">Idle</div>
                 </div>
-            </div>
-
-            <div class="chat-view" id="receiverDisplay">
-                <div class="empty-state">
-                    <i class="fas fa-comments"></i>
-                    <div>Waiting for messages...</div>
+                
+                <div style="width: 100%; border-top: 1px solid var(--border); margin: 10px 0;"></div>
+                
+                <div style="text-align: center; color: var(--text-secondary); font-size: 0.9rem;">
+                    <p style="margin-bottom: 10px;">Processing Logic:</p>
+                    <div style="display: flex; justify-content: center; gap: 10px; font-size: 0.8rem;">
+                        <span style="color: var(--accent-safe)"> < 0.50 Pass</span>
+                        <span style="color: var(--border)">|</span>
+                        <span style="color: var(--accent-toxic)"> ≥ 0.50 Rewrite</span>
+                    </div>
                 </div>
             </div>
         </div>
+
+        <div class="panel">
+            <div class="panel-header">Receiver Output</div>
+            <div class="chat-scroll" id="receiverLog">
+                </div>
+        </div>
+
     </div>
 
     <script>
-        let ws = null;
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws/moderator`);
+        
+        const ui = {
+            input: document.getElementById('msgInput'),
+            senderLog: document.getElementById('senderLog'),
+            receiverLog: document.getElementById('receiverLog'),
+            scoreVal: document.getElementById('scoreVal'),
+            statusBadge: document.getElementById('statusBadge'),
+            statusCard: document.getElementById('mainStatusCard'),
+            wsStatus: document.getElementById('wsStatus')
+        };
 
-        function connectWebSocket() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${protocol}//${window.location.host}/ws/moderator`);
+        // Track messages to retrospective update styles
+        // Simple queue since backend processes in order
+        let messageQueue = []; 
 
-            ws.onopen = () => {
-                console.log('WebSocket connected');
-                document.getElementById('connectionStatus').classList.add('connected');
-            };
+        ws.onopen = () => {
+            ui.wsStatus.classList.add('active');
+            console.log('Connected to Guard');
+        };
 
-            ws.onclose = () => {
-                console.log('WebSocket disconnected');
-                document.getElementById('connectionStatus').classList.remove('connected');
-                setTimeout(connectWebSocket, 3000);
-            };
+        ws.onclose = () => ui.wsStatus.classList.remove('active');
 
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-            };
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            handleResponse(data);
+        };
 
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                handleModerationResponse(data);
-            };
-        }
+        function send() {
+            const text = ui.input.value.trim();
+            if (!text) return;
 
-        function sendMessage() {
-            const input = document.getElementById('messageInput');
-            const text = input.value.trim();
+            // 1. Add visual placeholder to Sender Log
+            const msgId = Date.now();
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble sent pending';
+            bubble.id = `msg-${msgId}`;
+            bubble.textContent = text;
+            ui.senderLog.appendChild(bubble);
+            ui.senderLog.scrollTop = ui.senderLog.scrollHeight;
+            
+            // Track this ID
+            messageQueue.push({ id: msgId, text: text });
 
-            if (!text || !ws || ws.readyState !== WebSocket.OPEN) {
-                return;
-            }
-
-            addToSenderHistory(text);
+            // 2. Send to backend
             ws.send(JSON.stringify({ text: text }));
-            input.value = '';
-            input.style.height = '42px';
+            
+            ui.input.value = '';
         }
 
-        function addToSenderHistory(text) {
-            const history = document.getElementById('messageHistory');
-
-            const emptyState = history.querySelector('.empty-state');
-            if (emptyState) {
-                emptyState.remove();
-            }
-
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'bubble sent';
-            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            messageDiv.innerHTML = `<div>${text}</div><div class="time">${timestamp}</div>`;
-
-            history.appendChild(messageDiv);
-            history.scrollTop = history.scrollHeight;
-        }
-
-        function handleModerationResponse(data) {
+        function handleResponse(data) {
             const { original, final, toxicity, moderated } = data;
-            updateToxicityScore(toxicity);
-            updateDecisionDisplay(toxicity, moderated);
-            updateReceiverDisplay(final, moderated);
-        }
-
-        function updateToxicityScore(score) {
-            const scoreElement = document.getElementById('toxicityScore');
-            const barFill = document.getElementById('toxicityBarFill');
-
-            scoreElement.textContent = score.toFixed(2);
-
-            if (score >= 0.50) {
-                scoreElement.className = 'toxicity-score toxic';
-                barFill.style.background = 'var(--red-alert)';
-            } else {
-                scoreElement.className = 'toxicity-score safe';
-                barFill.style.background = 'var(--accent-green)';
+            
+            // 1. Update Sender Visuals (Find matching message)
+            // We scan queue for the original text matching the response
+            const matchIndex = messageQueue.findIndex(m => m.text === original);
+            if (matchIndex !== -1) {
+                const msgData = messageQueue[matchIndex];
+                const el = document.getElementById(`msg-${msgData.id}`);
+                if (el) {
+                    el.classList.remove('pending');
+                    el.classList.add(moderated ? 'toxic' : 'safe');
+                    
+                    if (moderated) {
+                        el.innerHTML += ` <i class="fas fa-exclamation-circle" style="margin-left:5px;"></i>`;
+                    }
+                }
+                // Remove from queue
+                messageQueue.splice(matchIndex, 1);
             }
 
-            barFill.style.width = `${Math.min(score * 100, 100)}%`;
-        }
+            // 2. Update Center Panel (Analysis)
+            ui.scoreVal.textContent = toxicity.toFixed(2);
+            ui.statusCard.className = 'status-card'; // Reset
+            ui.statusCard.classList.add(moderated ? 'status-toxic' : 'status-safe');
+            
+            ui.statusBadge.innerHTML = moderated 
+                ? `<i class="fas fa-biohazard"></i> Toxic Detected`
+                : `<i class="fas fa-check"></i> Safe`;
 
-        function updateDecisionDisplay(score, moderated) {
-            const decisionDisplay = document.getElementById('decisionDisplay');
-
-            if (score >= 0.50) {
-                decisionDisplay.className = 'decision-status rephrasing';
-                decisionDisplay.innerHTML = `
-                    <div class="decision-icon">🔄</div>
-                    <div class="decision-text">Rephrasing using Gemini API</div>
-                `;
-            } else {
-                decisionDisplay.className = 'decision-status forwarding';
-                decisionDisplay.innerHTML = `
-                    <div class="decision-icon">✅</div>
-                    <div class="decision-text">Forwarding message as-is</div>
-                `;
-            }
-        }
-
-        function updateReceiverDisplay(finalText, moderated) {
-            const receiverDisplay = document.getElementById('receiverDisplay');
-
-            const emptyState = receiverDisplay.querySelector('.empty-state');
-            if (emptyState) {
-                emptyState.remove();
+            // 3. Update Receiver Log
+            const rxBubble = document.createElement('div');
+            rxBubble.className = `bubble received ${moderated ? 'modified' : ''}`;
+            rxBubble.innerHTML = final;
+            
+            if(moderated) {
+                rxBubble.innerHTML += `<div style="font-size: 0.7rem; margin-top: 5px; opacity: 0.7;">(Sanitized by AI)</div>`
             }
 
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'bubble received';
-            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-            let messageHTML = `<div>${finalText}</div><div class="time">${timestamp}</div>`;
-
-            if (moderated) {
-                messageHTML += `<div class="moderation-notice"><i class="fas fa-shield-alt"></i> Message was moderated for appropriateness</div>`;
-            }
-
-            messageDiv.innerHTML = messageHTML;
-            receiverDisplay.appendChild(messageDiv);
-            receiverDisplay.scrollTop = receiverDisplay.scrollHeight;
+            ui.receiverLog.appendChild(rxBubble);
+            ui.receiverLog.scrollTop = ui.receiverLog.scrollHeight;
         }
 
-        // Auto-resize textarea
-        document.getElementById('messageInput').addEventListener('input', function () {
-            this.style.height = 'auto';
-            this.style.height = (this.scrollHeight > 120 ? 120 : this.scrollHeight) + 'px';
+        // Enter key support
+        ui.input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') send();
         });
-
-        // Enter to send (Shift+Enter for newline)
-        document.getElementById('messageInput').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
-        });
-
-        // Connect on page load
-        connectWebSocket();
     </script>
 </body>
-
 </html>
