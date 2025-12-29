@@ -1,4 +1,41 @@
-# Deployment Guide for Chat Toxicity Moderator
+# Deployment Guide for AI Text Moderator
+
+## Vercel Deployment (Minimal Configuration)
+
+This project is configured for deployment on Vercel with minimal dependencies to avoid memory issues during build.
+
+### Minimal Requirements (for Vercel):
+
+The requirements.txt contains only essential packages:
+- fastapi - Web framework
+- groq - For API calls (when available)
+- mangum - ASGI adapter for serverless
+
+### Features in Vercel Deployment:
+
+- Keyword-based toxicity detection
+- Generic message rephrasing (no API required)
+- Basic functionality without external API keys
+
+### Optional Enhanced Features:
+
+- Add `GROQ_API_KEY` environment variable for improved rephrasing (requires API access)
+
+### To Deploy:
+
+1. Push this code to your GitHub repository
+2. Import into Vercel
+3. The build should complete without memory errors
+
+## Local Development (Full Features)
+
+For full functionality with local ML models:
+
+```bash
+pip install -r requirements-full.txt
+```
+
+This includes PyTorch, Transformers, and Detoxify for full ML-powered moderation.
 
 ## Deploying on Vercel
 

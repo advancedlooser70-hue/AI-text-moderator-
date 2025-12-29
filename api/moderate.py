@@ -1,10 +1,9 @@
 import os
 import re
 from typing import Optional
-import openai
 from pydantic import BaseModel
 from mangum import Mangum
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Initialize FastAPI app
@@ -111,58 +110,10 @@ def simple_toxicity_detection(text: str) -> float:
 
 async def rephrase_with_groq(text: str) -> Optional[str]:
     """Rephrase text using Groq API if available."""
-    groq_api_key = os.environ.get("GROQ_API_KEY")
-    
-    if not groq_api_key:
-        return None
-    
-    try:
-        # Using OpenAI-compatible API for Groq
-        client = openai.OpenAI(
-            api_key=groq_api_key,
-            base_url="https://api.groq.com/openai/v1"
-        )
-        
-        prompt = f"""Rewrite this message to be polite and respectful while keeping the SAME meaning and context.
-
-Rules:
-- Keep the original intent and message
-- Only make it polite and appropriate
-- Keep it natural and conversational
-- Output ONLY the rewritten text (no quotes, no explanations)
-
-Original: "{text}"
-
-Polite version:"""
-
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a helpful assistant that rephrases toxic messages to be polite while keeping their original meaning and context intact."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            temperature=0.2,
-            max_tokens=150,
-            top_p=0.9
-        )
-        
-        if response.choices and len(response.choices) > 0:
-            content = response.choices[0].message.content
-            if content:
-                rephrased = clean_rephrased_text(content)
-                if is_valid_rephrasing(text, rephrased):
-                    return rephrased
-        
-        return None
-    except Exception as e:
-        print(f"Groq API error: {e}")
-        return None
+    # Since we're optimizing for minimal build, skip external API calls
+    # This function is effectively disabled in minimal config
+    # to prevent build-time dependencies issues
+    return None
 
 @app.post("/moderate")
 async def moderate(msg: Message):
@@ -189,9 +140,9 @@ async def moderate(msg: Message):
 @app.get("/")
 async def root():
     return {
-        "message": "Chat Toxicity Moderator API (Vercel Compatible)", 
+        "message": "Chat Toxicity Moderator API (Minimal Vercel Config)", 
         "status": "running",
-        "model": "keyword-based detection with optional Groq rephrasing"
+        "model": "keyword-based detection"
     }
 
 # Create the Mangum handler for Vercel
