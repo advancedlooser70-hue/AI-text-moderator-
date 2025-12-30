@@ -1,13 +1,22 @@
 import os
 import json
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from mangum import Mangum
 from groq import Groq
 
 app = FastAPI()
 
-# Setup Groq Client
+# 1. Enable CORS (Crucial for the frontend to connect)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 2. Setup Groq
 api_key = os.environ.get("GROQ_API_KEY")
 client = Groq(api_key=api_key) if api_key else None
 
@@ -20,8 +29,8 @@ def read_root():
 
 @app.post("/moderate")
 def moderate_text(request: TextRequest):
-    # DEFAULT SAFE RESPONSE (The Safety Net)
-    # NOW INCLUDES "rephrased_text" to prevent UI errors
+    # SAFETY NET: If AI fails, return this "Safe" default.
+    # We include "rephrased_text" because missing it causes the "Error processing message" bug.
     safe_response = {
         "toxicity": 0.0,
         "severe_toxicity": 0.0,
@@ -29,22 +38,26 @@ def moderate_text(request: TextRequest):
         "identity_attack": 0.0,
         "insult": 0.0,
         "threat": 0.0,
-        "rephrased_text": request.text # Just return original text if AI fails
+        "rephrased_text": request.text 
     }
 
-    try:
-        # 1. Check if API Key exists
-        if not client:
-            print("ERROR: GROQ_API_KEY is missing!")
-            return safe_response
+    if not client:
+        print("Error: GROQ_API_KEY is missing")
+        return safe_response
 
-        # 2. Ask Groq (Updated Prompt)
-        # We now ask it to return "rephrased_text" too
+    try:
+        # 3. Ask Groq
+        # We explicitly ask for "rephrased_text" to satisfy the frontend.
         chat_completion = client.chat.completions.create(
             messages=[
                 {
                     "role": "system",
-                    "content": "Analyze the text. Return a JSON object with: 1. Scores (0.0-1.0) for toxicity, severe_toxicity, obscene, identity_attack, insult, threat. 2. A field 'rephrased_text' which is a polite version of the input."
+                    "content": """
+                    Analyze the text for toxicity.
+                    Return a JSON object with:
+                    1. Scores (0.0-1.0) for: toxicity, severe_toxicity, obscene, identity_attack, insult, threat.
+                    2. "rephrased_text": If toxic, rewrite politely. If safe, return original text.
+                    """
                 },
                 {
                     "role": "user",
@@ -55,18 +68,18 @@ def moderate_text(request: TextRequest):
             response_format={"type": "json_object"},
         )
         
-        # 3. Clean and Parse
+        # 4. Parse Response
         content = chat_completion.choices[0].message.content
         result = json.loads(content)
         
-        # Double check: If AI forgot the 'rephrased_text' field, add it manually so UI doesn't crash
+        # FAILSAFE: If AI forgets 'rephrased_text', add it manually to prevent the 100% Toxic bug.
         if "rephrased_text" not in result:
             result["rephrased_text"] = request.text
             
         return result
 
     except Exception as e:
-        print(f"CRASH: {str(e)}")
+        print(f"Backend Error: {e}")
         return safe_response
 
-handler = Mangum(app)
+# NOTE: 'handler = Mangum(app)' is DELETED. Vercel doesn't need it anymore.
