@@ -1,3 +1,5 @@
 fastapi
 groq
 mangum
+uvicorn
+python-multipart
